@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project-module
+  type="WEB"
+  name="jta"
+  id="myeclipse.1500253600422"
+  context-root="/jta"
+  j2ee-spec="1.7"
+  archive="jta.war">
+  <attributes>
+    <attribute name="webrootdir" value="src/main/webapp" />
+  </attributes>
+</project-module>
+

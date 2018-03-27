@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>  
+<beans xmlns="http://www.springframework.org/schema/beans"  
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:context="http://www.springframework.org/schema/context"  
+    xmlns:mvc="http://www.springframework.org/schema/mvc" xmlns:tx="http://www.springframework.org/schema/tx"  
+    xmlns:aop="http://www.springframework.org/schema/aop"  
+    xsi:schemaLocation="http://www.springframework.org/schema/mvc   
+    http://www.springframework.org/schema/mvc/spring-mvc-4.0.xsd  
+    http://www.springframework.org/schema/beans   
+    http://www.springframework.org/schema/beans/spring-beans-4.0.xsd  
+    http://www.springframework.org/schema/context   
+    http://www.springframework.org/schema/context/spring-context-4.0.xsd  
+    http://www.springframework.org/schema/tx   
+    http://www.springframework.org/schema/tx/spring-tx-4.0.xsd  
+    http://www.springframework.org/schema/aop   
+    http://www.springframework.org/schema/aop/spring-aop-4.0.xsd" default-lazy-init="true">                        
+	
+ 	<!-- 使用AspectJ方式配置AOP -->  
+	<aop:aspectj-autoproxy />
+	
+	<!-- 引入属性配置文件 -->
+	<context:property-placeholder location="classpath*:/application.properties" /> 
+	
+	<!-- 注解bean及依赖注入 -->
+	<context:component-scan base-package="com.zmx.jta" >
+		<context:exclude-filter expression="org.springframework.stereotype.Controller" type="annotation" />
+	</context:component-scan>
+	
+	<!-- com.atomikos.jdbc.nonxa.AtomikosNonXADataSourceBean -->
+ 	<bean id="abstractXADataSource" class="com.atomikos.jdbc.AtomikosDataSourceBean" init-method="init" destroy-method="close" abstract="true">  
+       <property name="xaDataSourceClassName" value="${jdbc.xaDataSourceClassName}"/>  <!-- SQLErrorCodes loaded: [DB2, Derby, H2, HSQL, Informix, MS-SQL, MySQL, Oracle, PostgreSQL, Sybase, Hana]  -->
+       <property name="poolSize" value="1" />  
+       <property name="minPoolSize" value="1"/>  
+       <property name="maxPoolSize" value="10"/>  
+       <property name="borrowConnectionTimeout" value="60"/>  
+       <property name="reapTimeout" value="20"/>  
+       <property name="maxIdleTime" value="60"/>  
+       <property name="maintenanceInterval" value="60"/>  
+       <property name="loginTimeout" value="60"/>  
+       <property name="testQuery" value="${validationQuery}"/>  
+   	</bean>  
+   	
+   	
+ 	<bean id="masterDataSource" parent="abstractXADataSource">  
+ 		<property name="uniqueResourceName" value="masterDB" />  
+	    <property name="xaProperties">
+            <props>
+           		<prop key="driverClassName">${jdbc.driverClassName}</prop>
+                <prop key="url">${master.jdbc.url}</prop>
+                <!--  <prop key="user">${jdbc.username}</prop> --> <!-- mysql -->
+                <prop key="username">${jdbc.username}</prop>   <!-- durid -->
+                <prop key="password">${jdbc.password}</prop>               
+             	<prop key="initialSize">1</prop>
+				<prop key="maxActive">5</prop> <!-- 若不配置则代码执行"{dataSource-1} inited"此处停止  -->
+				<prop key="minIdle">0</prop>
+				<prop key="maxWait">100</prop>
+           		<prop key="validationQuery">${validationQuery}</prop>
+				<prop key="testOnBorrow">false</prop>
+				<prop key="testOnReturn">false</prop>
+				<prop key="testWhileIdle">true</prop>
+				<prop key="removeAbandoned">true</prop>
+				<prop key="removeAbandonedTimeout">1800</prop>
+				<prop key="logAbandoned">true</prop>
+				<prop key="filters">mergeStat</prop>
+            </props>
+        </property>
+    </bean>
+    
+      
+   	<bean id="slaveDataSource" parent="abstractXADataSource">  
+   		<property name="uniqueResourceName" value="slaveDB" />  
+	    <property name="xaProperties">
+            <props>
+          		<prop key="driverClassName">${jdbc.driverClassName}</prop>
+                <prop key="url">${slave.jdbc.url}</prop>
+                <!--  <prop key="user">${jdbc.username}</prop> -->
+                <prop key="username">${jdbc.username}</prop>
+                <prop key="password">${jdbc.password}</prop>
+               	<prop key="initialSize">1</prop>
+				<prop key="maxActive">5</prop>
+				<prop key="minIdle">0</prop>
+				<prop key="maxWait">100</prop>
+                <prop key="validationQuery">${validationQuery}</prop>
+				<prop key="testOnBorrow">false</prop>
+				<prop key="testOnReturn">false</prop>
+				<prop key="testWhileIdle">true</prop>
+				<prop key="removeAbandoned">true</prop>
+				<prop key="removeAbandonedTimeout">1800</prop>
+				<prop key="logAbandoned">true</prop>
+				<prop key="filters">mergeStat</prop>
+            </props>
+        </property>
+    </bean>  
+	
+	 
+    <bean id="masterSqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">  
+        <property name="configLocation" value="classpath:mybatis-config-master.xml" />  
+        <property name="dataSource" ref="masterDataSource" />  
+    </bean>  
+   
+    <bean id="slaveSqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">  
+        <property name="configLocation" value="classpath:mybatis-config-slave.xml" />  
+        <property name="dataSource" ref="slaveDataSource" />  
+    </bean> 
+    
+    
+    
+    <bean id="memberDao" class="org.mybatis.spring.mapper.MapperFactoryBean">  
+        <property name="sqlSessionFactory" ref="masterSqlSessionFactory" />  
+        <property name="mapperInterface" value="com.zmx.jta.dao.MemberDao" />  
+    </bean>  
+       
+    <bean id="memberInfoDao" class="org.mybatis.spring.mapper.MapperFactoryBean">  
+        <property name="sqlSessionFactory" ref="slaveSqlSessionFactory" />  
+        <property name="mapperInterface" value="com.zmx.jta.dao.MemberInfoDao" />  
+    </bean> 
+    
+    
+
+	<!-- atomikos事务管理器 -->
+	<bean id="atomikosTransactionManager" class="com.atomikos.icatch.jta.UserTransactionManager" init-method="init" destroy-method="close">
+        <property name="forceShutdown">
+            <value>true</value>
+        </property>
+    </bean>
+ 
+    <bean id="atomikosUserTransaction" class="com.atomikos.icatch.jta.UserTransactionImp">
+        <property name="transactionTimeout" value="300" />
+    </bean>
+    
+    
+ 	<!-- spring 事务管理器 -->  
+    <bean id="springTransactionManager" class="org.springframework.transaction.jta.JtaTransactionManager">
+        <property name="transactionManager" ref="atomikosTransactionManager" />
+        <property name="userTransaction" ref="atomikosUserTransaction" />
+        <!-- 必须设置，否则程序出现异常 JtaTransactionManager does not support custom isolation levels by default -->
+        <property name="allowCustomIsolationLevels" value="true"/> 
+    </bean>
+
+    <aop:config  proxy-target-class="true">
+        <aop:advisor pointcut="(execution(* com.zmx.jta.service.*.* (..)))" advice-ref="txAdvice" />
+    </aop:config>
+ 
+    <tx:advice id="txAdvice" transaction-manager="springTransactionManager">
+        <tx:attributes>
+            <tx:method name="get*"  propagation="REQUIRED"  read-only="true" />
+            <tx:method name="find*"  propagation="REQUIRED"  read-only="true" />
+            <tx:method name="has*"  propagation="REQUIRED"  read-only="true" />
+            <tx:method name="locate*"  propagation="REQUIRED"  read-only="true" />
+            <tx:method name="register*" propagation="REQUIRED" rollback-for="java.lang.Exception" />
+        </tx:attributes>
+    </tx:advice>
+
+	
+	
+</beans> 

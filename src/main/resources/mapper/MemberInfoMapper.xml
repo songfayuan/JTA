@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.zmx.jta.dao.MemberInfoDao" >
+  <resultMap id="BaseResultMap" type="com.zmx.jta.domain.MemberInfo" >
+    <id column="id" property="id" jdbcType="INTEGER" />
+    <result column="nickname" property="nickname" jdbcType="VARCHAR" />
+    <result column="realname" property="realname" jdbcType="VARCHAR" />
+    <result column="age" property="age" jdbcType="TINYINT" />
+  </resultMap>
+  <sql id="Base_Column_List" >
+    id, nickname, realname, age
+  </sql>
+  <insert id="insert" parameterType="com.zmx.jta.domain.MemberInfo" >
+    insert into member_info (id, nickname, realname, age)
+    values (#{id,jdbcType=INTEGER}, #{nickname,jdbcType=VARCHAR}, #{realname,jdbcType=VARCHAR}, #{age,jdbcType=TINYINT})
+  </insert>
+</mapper>
